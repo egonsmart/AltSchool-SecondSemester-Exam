@@ -1,0 +1,30 @@
+---
+- name: Deploy LAMP Stack and Configure Cron Job
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Copy script for setting up LAMP/Laravel application into the slave VM
+      copy:
+        src: master.sh
+        dest: /tmp/master.sh
+        mode: 0755
+
+    - name: Execute the bash script on the slave VM
+      shell: /tmp/master.sh
+      ignore_errors: yes  # Ignore errors to continue with the playbook
+      register: script_output
+
+    - name: Verify PHP application accessibility
+      wait_for:
+        host: "{{ ansible_ssh_host }}"
+        port: 80
+        timeout: 60
+      when: script_output is not failed
+
+    - name: Create a cron job to check server's uptime at 12AM daily
+      cron:
+        name: check_uptime
+        minute: "0"
+        hour: "0"
+        job: "uptime >> /var/log/uptime.log"
